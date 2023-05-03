@@ -10,7 +10,7 @@ logging_logger = logging.getLogger(__name__)
 
 
 def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, max_delay=None, backoff=1, jitter=0,
-                     logger=logging_logger, log_traceback=False, on_exception=None):
+                     logger=logging_logger, log_traceback=False, on_exception=None, skip_retry=None):
     """
     Executes a function and retries it if it failed.
 
@@ -27,6 +27,8 @@ def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, max_delay=None,
     :param on_exception: handler called when exception occurs. will be passed the captured
                          exception as an argument. further retries are stopped when handler
                          returns True. default: None
+    :param skip_retry: A function that takes the exception, if the function
+                    returns True, no more retries are executed
     :returns: the result of the f function.
     """
     _tries, _delay = tries, delay
@@ -37,6 +39,9 @@ def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, max_delay=None,
             if on_exception is not None:
                 if on_exception(e):
                     break
+
+            if skip_retry and skip_retry(e):
+                break
 
             _tries -= 1
             if not _tries:
@@ -65,7 +70,7 @@ def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, max_delay=None,
 
 
 def retry(exceptions=Exception, tries=-1, delay=0, max_delay=None, backoff=1, jitter=0, logger=logging_logger,
-          log_traceback=False, on_exception=None):
+          log_traceback=False, on_exception=None, skip_retry=None):
     """Returns a retry decorator.
 
     :param exceptions: an exception or a tuple of exceptions to catch. default: Exception.
@@ -80,6 +85,8 @@ def retry(exceptions=Exception, tries=-1, delay=0, max_delay=None, backoff=1, ji
     :param on_exception: handler called when exception occurs. will be passed the captured
                          exception as an argument. further retries are stopped when handler
                          returns True. default: None
+    :param skip_retry: A function that takes the exception, if the function
+                    returns True, no more retries are executed
     :returns: a retry decorator.
     """
 
@@ -87,14 +94,25 @@ def retry(exceptions=Exception, tries=-1, delay=0, max_delay=None, backoff=1, ji
     def retry_decorator(f, *fargs, **fkwargs):
         args = fargs if fargs else list()
         kwargs = fkwargs if fkwargs else dict()
-        return __retry_internal(partial(f, *args, **kwargs), exceptions, tries, delay, max_delay, backoff, jitter,
-                                logger, log_traceback, on_exception)
+        return __retry_internal(
+            f=partial(f, *args, **kwargs),
+            exceptions=exceptions,
+            tries=tries,
+            delay=delay,
+            max_delay=max_delay,
+            backoff=backoff,
+            jitter=jitter,
+            logger=logger,
+            log_traceback=log_traceback,
+            on_exception=on_exception,
+            skip_retry=skip_retry
+        )
 
     return retry_decorator
 
 
 def retry_call(f, fargs=None, fkwargs=None, exceptions=Exception, tries=-1, delay=0, max_delay=None, backoff=1,
-               jitter=0, logger=logging_logger, log_traceback=False, on_exception=None):
+               jitter=0, logger=logging_logger, log_traceback=False, on_exception=None, skip_retry=None):
     """
     Calls a function and re-executes it if it failed.
 
@@ -113,9 +131,22 @@ def retry_call(f, fargs=None, fkwargs=None, exceptions=Exception, tries=-1, dela
     :param on_exception: handler called when exception occurs. will be passed the captured
                          exception as an argument. further retries are stopped when handler
                          returns True. default: None
+    :param skip_retry: A function that takes the exception, if the function
+                    returns True, no more retries are executed
     :returns: the result of the f function.
     """
     args = fargs if fargs else list()
     kwargs = fkwargs if fkwargs else dict()
-    return __retry_internal(partial(f, *args, **kwargs), exceptions, tries, delay, max_delay, backoff, jitter, logger,
-                            log_traceback, on_exception)
+    return __retry_internal(
+        f=partial(f, *args, **kwargs),
+        exceptions=exceptions,
+        tries=tries,
+        delay=delay,
+        max_delay=max_delay,
+        backoff=backoff,
+        jitter=jitter,
+        logger=logger,
+        log_traceback=log_traceback,
+        on_exception=on_exception,
+        skip_retry=skip_retry
+    )
