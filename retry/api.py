@@ -1,6 +1,6 @@
+import asyncio
 import logging
 import random
-import time
 import traceback
 from functools import partial
 
@@ -9,7 +9,7 @@ from .compat import decorator
 logging_logger = logging.getLogger(__name__)
 
 
-def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, max_delay=None, backoff=1, jitter=0,
+async def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, max_delay=None, backoff=1, jitter=0,
                      logger=logging_logger, log_traceback=False, on_exception=None):
     """
     Executes a function and retries it if it failed.
@@ -32,7 +32,7 @@ def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, max_delay=None,
     _tries, _delay = tries, delay
     while _tries:
         try:
-            return f()
+            return await f()
         except exceptions as e:
             if on_exception is not None:
                 if on_exception(e):
@@ -52,7 +52,7 @@ def __retry_internal(f, exceptions=Exception, tries=-1, delay=0, max_delay=None,
                 if log_traceback:
                     logger.warning(traceback.format_exc())
 
-            time.sleep(_delay)
+            await asyncio.sleep(_delay)
             _delay *= backoff
 
             if isinstance(jitter, tuple):
